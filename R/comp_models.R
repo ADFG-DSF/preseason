@@ -1,6 +1,6 @@
 #' Plot histogram and fitted lognorm/normal distribution
 #'
-#' Use to compart empirical data to fitted distibution.
+#' Use to compare empirical data to fitted distibution.
 #'
 #' @param dat a vector
 #'
