@@ -18,6 +18,6 @@
 deshka
 }
 \description{
-Updated thru the 2017 season
+Based on SusitnEG posterior updated thru the 2017 season (Chinook_DsumS_ababd3a.rds)
 }
 \keyword{datasets}
