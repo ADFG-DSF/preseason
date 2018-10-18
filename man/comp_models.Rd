@@ -13,7 +13,7 @@ comp_models(dat, comp_age, years = 5)
 a figure
 }
 \description{
-Use to compart empirical data to fitted distibution.
+Use to compare empirical data to fitted distibution.
 }
 \examples{
 plot_dist(brood$age4)
