@@ -12,12 +12,11 @@
   \item{age4}{Age 4 fish returning from each brood year}
   \item{age5}{Age 5 fish returning from each brood year}
   \item{age6}{Age 6 fish returning from each brood year}
-  \item{age7}{Age 7 fish returning from each brood year}
 }}
 \usage{
 deshka
 }
 \description{
-Based on SusitnEG posterior updated thru the 2017 season (Chinook_DsumS_ababd3a.rds)
+Based on SusitnEG posterior updated thru the 2017 season (Chinook_DsumS_ababd3a.rds), but temporarily appended w 2018 data from Deshka asl.
 }
 \keyword{datasets}
