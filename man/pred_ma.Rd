@@ -4,18 +4,20 @@
 \alias{pred_ma}
 \title{Predictions from a moving average model}
 \usage{
-pred_ma(var, yrs = NULL)
+pred_ma(var, yrs = 5)
 }
 \arguments{
-\item{mod}{a class "lm" object}
+\item{var}{a log transformed time series.}
+
+\item{yrs}{years in the moving average. NULL to average the entire series.}
 }
 \value{
-a vector of predictions.
+a matrix with columns "mean" and "median" providing predictions on the natural scale.
 }
 \description{
 One step forward predictions from a moving average model
 }
 \examples{
-pred_lm(mod)
+pred_ma(var)
 
 }
