@@ -1,21 +1,24 @@
 ---
-title: 'Deshka Chinook example'
-author: "Adam Reimer"
-date: "October 18, 2018"
+title: "Deshka_Chinook_demo"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{'Deshka Chinook example'}
+  %\VignetteIndexEntry{Deshka_Chinook_demo}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
 
-```{r setup, include=FALSE}
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+
 knitr::opts_chunk$set(echo = TRUE, fig.width = 7, fig.height = 7)
 par(mar=c(1,1,1,1))
 ```
 
 ## Introduction
-This example will use the Deshka River Chinook salmon brood table to demonstrate preseason salmon forecasts in R. The process relies on cross validation for model selection and offers a flexible framework where several models can be considered easily. The functions used in this tutorial are all part of the "preseason" package available on GitHub and can be installed with using the command devtools::install_github("adamreimer/preseason").
+This example will use the Deshka River Chinook salmon brood table to demonstrate preseason salmon forecasts in R. The process relies on cross validation for model selection and offers a flexible framework where several models can be considered easily. The functions used in this tutorial are all part of the "preseason" package available on GitHub and can be installed with using the command devtools::install_github("ADFG-DSF/preseason").
 ```{r}
 library(preseason)
 ```

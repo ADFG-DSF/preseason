@@ -8,12 +8,16 @@ Maintainer: Adam Reimer <adam.reimer@alaska.gov>
 Description: Run several preseason forecast models and compare the results via cross validation.
 Imports:
   dplyr,
+  tidyr,
   ggplot2,
-  magrittr
-License: What license is it under?
+  magrittr,
+  fitdistrplus, 
+  forecast
+Depends: R (>= 2.10)
+License: GPL-3
 Encoding: UTF-8
 LazyData: true
-RoxygenNote: 6.0.1
+RoxygenNote: 7.2.3
 Suggests: knitr,
     rmarkdown
 VignetteBuilder: knitr

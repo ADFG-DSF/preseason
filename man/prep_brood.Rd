@@ -7,17 +7,20 @@
 prep_brood(brood, age_range)
 }
 \arguments{
-\item{brood}{dataframe the full brood table}
+\item{brood}{data frame with the full brood table including columns:\describe{
+\item{byr}{brood year}
+\item{S}{spawning escapement}
+\item{age#}{the total return of age # fish following the naming convention age#}}}
 
-\item{age_range}{a vector with the ages of interest}
+\item{age_range}{a vector with the ages of interest.}
 }
 \value{
-a dataframe
+a data frame
 }
 \description{
 Function to select ages of interest from the brood table, remove missing values and calculate logs and log(R/S).
 }
 \examples{
-prep_brood(brood, 4:6)
+prep_brood(deshka, 4:6)
 
 }

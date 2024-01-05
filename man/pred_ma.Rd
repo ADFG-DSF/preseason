@@ -2,7 +2,7 @@
 % Please edit documentation in R/pred_ma.R
 \name{pred_ma}
 \alias{pred_ma}
-\title{Predictions from a moving average model}
+\title{Moving average model estimates}
 \usage{
 pred_ma(var, yrs = 5)
 }
@@ -15,9 +15,10 @@ pred_ma(var, yrs = 5)
 a matrix with columns "mean" and "median" providing predictions on the natural scale.
 }
 \description{
-One step forward predictions from a moving average model
+Creates a series of one-step ahead predictions for all years beyond the 5th year in the time series using a log scale moving average of the time series to be used in evaluating model performance in past seasons.
 }
 \examples{
-pred_ma(var)
+dat6 <- prep_brood(deshka, 4:6)
+pred_ma(dat6$age6_ln)
 
 }
