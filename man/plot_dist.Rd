@@ -2,7 +2,7 @@
 % Please edit documentation in R/plot_dist.R
 \name{plot_dist}
 \alias{plot_dist}
-\title{Plot histogram and fitted lognorm/normal distribution}
+\title{Plot histogram and fitted lognormal and normal distributions}
 \usage{
 plot_dist(dat)
 }
@@ -13,9 +13,10 @@ plot_dist(dat)
 a figure
 }
 \description{
-Use to compart empirical data to fitted distibution.
+Use to compare empirical data to fitted distribution.
 }
 \examples{
-plot_dist(brood$age4)
+plot_dist(deshka$age5)
+
 
 }

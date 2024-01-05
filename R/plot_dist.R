@@ -1,13 +1,14 @@
-#' Plot histogram and fitted lognorm/normal distribution
+#' Plot histogram and fitted lognormal and normal distributions
 #'
-#' Use to compart empirical data to fitted distibution.
+#' Use to compare empirical data to fitted distribution.
 #'
 #' @param dat a vector
 #'
 #' @return a figure
 #'
 #' @examples
-#' plot_dist(brood$age4)
+#' plot_dist(deshka$age5)
+#'
 #'
 #' @export
 plot_dist <- function(dat){

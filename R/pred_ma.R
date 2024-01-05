@@ -1,6 +1,6 @@
-#' Predictions from a moving average model
+#' Moving average model estimates
 #'
-#' One step forward predictions from a moving average model
+#' Creates a series of one-step ahead predictions for all years beyond the 5th year in the time series using a log scale moving average of the time series to be used in evaluating model performance in past seasons.
 #'
 #' @param var a log transformed time series. 
 #' @param yrs years in the moving average. NULL to average the entire series.
@@ -8,7 +8,8 @@
 #' @return a matrix with columns "mean" and "median" providing predictions on the natural scale.
 #'
 #' @examples
-#' pred_ma(var)
+#' dat6 <- prep_brood(deshka, 4:6)
+#' pred_ma(dat6$age6_ln)
 #'
 #' @export
 pred_ma <- function(var, yrs = 5){

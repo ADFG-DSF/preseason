@@ -2,20 +2,21 @@
 % Please edit documentation in R/pred_es.R
 \name{pred_es}
 \alias{pred_es}
-\title{Predictions from a exponential smoothing model}
+\title{One-step ahead predictions from a exponential smoothing model}
 \usage{
 pred_es(x)
 }
 \arguments{
-\item{mod}{a class "lm" object}
+\item{x}{a time series.}
 }
 \value{
 a vector of predictions.
 }
 \description{
-One step forward predictions from a exponential smoothing model
+Creates a series of one-step ahead predictions for all years beyond the 5th year in the time series using the an exponential smoothing ("ANN") model to be used in evaluating model performance in past seasons.
 }
 \examples{
-pred_lm(mod)
+dat6 <- prep_brood(deshka, 4:6)
+pred_es(dat6$age6_ln)
 
 }

@@ -4,7 +4,7 @@
 #'
 #' @format A data frame with 44 rows and 7 variables:
 #' \describe{
-#'   \item{bry}{brood year}
+#'   \item{byr}{brood year}
 #'   \item{S}{Spawners during each brood year}
 #'   \item{age3}{Age 3 fish returning from each brood year}
 #'   \item{age4}{Age 4 fish returning from each brood year}

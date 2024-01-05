@@ -1,13 +1,14 @@
-#' Predictions from a exponential smoothing model
+#' One-step ahead predictions from a exponential smoothing model
 #'
-#' One step forward predictions from a exponential smoothing model
+#' Creates a series of one-step ahead predictions for all years beyond the 5th year in the time series using the an exponential smoothing ("ANN") model to be used in evaluating model performance in past seasons.
 #'
-#' @param mod a class "lm" object
+#' @param x a time series.
 #'
 #' @return a vector of predictions.
 #'
 #' @examples
-#' pred_lm(mod)
+#' dat6 <- prep_brood(deshka, 4:6)
+#' pred_es(dat6$age6_ln)
 #'
 #' @export
 pred_es <- function(x){

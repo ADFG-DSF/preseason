@@ -2,7 +2,7 @@
 % Please edit documentation in R/pred_lm.R
 \name{pred_lm}
 \alias{pred_lm}
-\title{Predictions from a linear model}
+\title{One-step ahead predictions from a linear model}
 \usage{
 pred_lm(mod)
 }
@@ -13,9 +13,11 @@ pred_lm(mod)
 a matrix where the first row is the prediction and the second row is the SE of the prediction.
 }
 \description{
-Leave-one out predictions from a linear model
+Creates a series of one-step ahead predictions for all years beyond the 5th year in the time series using the an exponential smoothing model to be used in evaluating model performance in past seasons.
 }
 \examples{
-pred_lm(mod)
+dat6 <- prep_brood(deshka, 4:6)
+sib6 <- lm(age6_ln ~ age5_ln, data = dat6)
+pred_lm(sib6)
 
 }
