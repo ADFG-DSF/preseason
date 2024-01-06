@@ -27,7 +27,8 @@ comp_models <- function(dat, comp_age, years = 5, metric = c("md", "mad")){
   diff <- dat %>%
     dplyr::select(byr, !!age, dplyr::ends_with("pred")) %>%
     tidyr::gather(type, pred, -byr, -!!age) %>%
-    dplyr::mutate(d = pred - (!!as.name(age)))
+    dplyr::mutate(d = pred - (!!as.name(age)),
+                  pe = d / (!!as.name(age)))
 
 plot <- ggplot2::ggplot(diff, ggplot2::aes(x = byr, y = pred, color = type)) +
   ggplot2::geom_jitter(width = 0.2, alpha = 0.5, size = 3) +
