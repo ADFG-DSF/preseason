@@ -20,3 +20,9 @@ pred_lm <- function(mod){
     preds <- predict(mod, newdata = test, se = TRUE)
     c(preds$fit, preds$se.fit)})
 }
+
+fore_lm <- function(dat, mod){
+  new_data <- data.frame(dat[nrow(dat), names(mod$model)])
+  forecast <- predict(mod, newdata = new_data, se.fit = TRUE)
+  c(forecast$fit, forecast$se.fit)
+}

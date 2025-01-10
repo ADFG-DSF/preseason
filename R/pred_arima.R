@@ -14,12 +14,26 @@
 #' pred_arima(ARIMA6_ar1, x = dat6$age6_ln)
 #'
 #' @export
-pred_arima <- function(mod, x, xreg = NULL){
+pred_arima <- function(mod){
+  x0 <- mod$x
+  x <- x0[-length(x0)]
+  xreg0 <- mod$xreg
+  xreg <- xreg0[-length(xreg0)]
   pred <- sapply(6:length(x), function(l){
     train <- x[1:(l-1)]
     train_xreg <- xreg[1:(l-1)]
     newmod <- update(mod, x = train, xreg = train_xreg)
     preds <- predict(newmod, newxreg = xreg[l])
     c(preds$pred, preds$se)})
-  cbind(matrix(NA, 2, 5), pred)
+  cbind(matrix(NA, 2, 5), exp(pred), matrix(NA, 2, 1))
+}
+
+fore_arima <- function(mod){
+  if(!is.na(names(mod$coef[3]))){
+    xreg0 <- eval(parse(text = names(mod$coef[3])))
+    xreg <- xreg0[length(xreg0)]
+    fore <- exp(predict(mod, newxreg = xreg, n.ahead = 1)$pred)[[1]]
+  }
+  else fore <- exp(predict(mod, n.ahead = 1)$pred)[[1]]
+  fore
 }

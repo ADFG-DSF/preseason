@@ -25,10 +25,35 @@ comp_models <- function (dat, comp_age, years = 5, metric = c("md", "mad", "maap
   stopifnot(sum(metric %in% c("maape", "mape", "md", "mad")) == length(metric))
   age <- paste0("age", comp_age)
   
-  diff <- 
+  diff0 <- 
     dat %>% 
     dplyr::select(byr, !!age, dplyr::ends_with("pred")) %>% 
-    tidyr::gather(type, pred, -byr, -!!age) %>% 
+    tidyr::gather(type, pred, -byr, -!!age) %>%
+    dplyr::filter(byr != max(byr)) %>%
+    dplyr::mutate(d = pred - (!!as.name(age)), 
+                  pe = d/(!!as.name(age)))
+  
+  mod_average <- 
+    diff0 %>% 
+    dplyr::group_by(type) %>% 
+    dplyr::mutate(md = zoo::rollmeanr(d, 5, fill = NA), 
+                  mad = zoo::rollmeanr(abs(d), 5, fill = NA), 
+                  mape = zoo::rollmeanr(abs(pe), 5, fill = NA),
+                  maape = zoo::rollmeanr(atan(abs(pe)), 5, fill = NA), 
+                  inv_maape = 1 / maape) %>%
+    dplyr::arrange(byr) %>%
+    dplyr::group_by(byr) %>%
+    dplyr::mutate(sum_inv_maape = sum(inv_maape),
+                  weight = inv_maape / sum_inv_maape,
+                  weight_forecast = pred * weight) %>%
+    dplyr::summarise(average_pred = sum(weight_forecast))
+  
+  diff <- 
+    dat %>% 
+    dplyr::left_join(mod_average, by = "byr") %>%
+    dplyr::select(byr, !!age, dplyr::ends_with("pred")) %>% 
+    tidyr::gather(type, pred, -byr, -!!age) %>%
+    dplyr::filter(byr != max(byr)) %>%
     dplyr::mutate(d = pred - (!!as.name(age)), 
                   pe = d/(!!as.name(age)))
   
@@ -37,6 +62,7 @@ comp_models <- function (dat, comp_age, years = 5, metric = c("md", "mad", "maap
     ggplot2::geom_jitter(width = 0.2, alpha = 0.5, size = 3) + 
     ggplot2::geom_point(ggplot2::aes(y = .data[[age]]), color = "black") + 
     ggplot2::geom_line(ggplot2::aes(y = .data[[age]]), color = "black")
+    
   
   table <- 
     diff %>% 
