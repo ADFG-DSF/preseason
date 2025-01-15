@@ -12,11 +12,11 @@
 #'
 #' @export
 pred_es <- function(mod){
-  preds <- sapply(6:length(mod$x), function(l){
-    train <- mod$x[1:(l-1)]
+  preds <- sapply(5:length(mod$x), function(l){
+    train <- mod$x[1:l]
     newmod <- forecast::ets(train, model = paste0(mod$components[1:3], collapse = ""))
     predict(newmod, h = 1)$mean})
-  c(rep(NA, 5), exp(preds), NA)
+  c(rep(NA, 5), exp(preds))
 }
 
 fore_es <- function(mod){

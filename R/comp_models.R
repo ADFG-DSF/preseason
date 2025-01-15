@@ -25,37 +25,48 @@ comp_models <- function (dat, comp_age, years = 5, metric = c("md", "mad", "maap
   stopifnot(sum(metric %in% c("maape", "mape", "md", "mad")) == length(metric))
   age <- paste0("age", comp_age)
   
+  #This section if for getting a model average forecast (inverse maape)
   diff0 <- 
     dat %>% 
     dplyr::select(byr, !!age, dplyr::ends_with("pred")) %>% 
     tidyr::gather(type, pred, -byr, -!!age) %>%
-    dplyr::filter(byr != max(byr)) %>%
     dplyr::mutate(d = pred - (!!as.name(age)), 
                   pe = d/(!!as.name(age)))
   
-  mod_average <- 
+  mod_average0 <- 
     diff0 %>% 
     dplyr::group_by(type) %>% 
-    dplyr::mutate(md = zoo::rollmeanr(d, 5, fill = NA), 
-                  mad = zoo::rollmeanr(abs(d), 5, fill = NA), 
-                  mape = zoo::rollmeanr(abs(pe), 5, fill = NA),
-                  maape = zoo::rollmeanr(atan(abs(pe)), 5, fill = NA), 
+    dplyr::mutate(maape_1 = zoo::rollmeanr(atan(abs(pe)), 5, fill = NA),
+                  maape = dplyr::lag(maape_1, 1),
                   inv_maape = 1 / maape) %>%
     dplyr::arrange(byr) %>%
     dplyr::group_by(byr) %>%
     dplyr::mutate(sum_inv_maape = sum(inv_maape),
                   weight = inv_maape / sum_inv_maape,
-                  weight_forecast = pred * weight) %>%
+                  weight_forecast = pred * weight)
+  
+  mod_average <- 
+    mod_average0 %>%
     dplyr::summarise(average_pred = sum(weight_forecast))
   
+  #This section is calculating the errors associated with each model
   diff <- 
     dat %>% 
     dplyr::left_join(mod_average, by = "byr") %>%
     dplyr::select(byr, !!age, dplyr::ends_with("pred")) %>% 
     tidyr::gather(type, pred, -byr, -!!age) %>%
-    dplyr::filter(byr != max(byr)) %>%
     dplyr::mutate(d = pred - (!!as.name(age)), 
-                  pe = d/(!!as.name(age)))
+                  pe = d/(!!as.name(age))) %>% 
+    dplyr::arrange(type, byr) %>%
+    dplyr::group_by(type) %>% 
+    dplyr::mutate(md_1 = zoo::rollmeanr(d, years, fill = NA), #Error stats for this brood year and the prior "years" - 1 brood years.
+                  mad_1 = zoo::rollmeanr(abs(d), years, fill = NA), #No used in mode selection bc it includes a year we would not know about when selecting the model.
+                  mape_1 = zoo::rollmeanr(abs(pe), years, fill = NA),
+                  maape_1 = zoo::rollmeanr(atan(abs(pe)), years, fill = NA),
+                  md = dplyr::lag(md_1, 1), #Error stats for the prior "years" - 1;"years" - 5 brood years.
+                  mad = dplyr::lag(mad_1, 1), #these would be used in model section
+                  mape = dplyr::lag(mape_1, 1),
+                  maape = dplyr::lag(maape_1, 1))
   
   plot <- 
     ggplot2::ggplot(diff, ggplot2::aes(x = byr, y = pred, color = type)) + 
@@ -66,13 +77,22 @@ comp_models <- function (dat, comp_age, years = 5, metric = c("md", "mad", "maap
   
   table <- 
     diff %>% 
+    dplyr::filter(byr == max(byr)) %>% #retain last year for model selection
     dplyr::group_by(type) %>% 
-    dplyr::top_n(years, byr) %>% 
-    dplyr::summarise(md = mean(d), 
-                     mad = mean(abs(d)), 
-                     mape = mean(abs(pe)),
-                     maape = mean(atan(abs(pe)))) %>%
-    dplyr::select(-c("maape", "mape", "md", "mad")[!(c("maape", "mape", "md", "mad") %in% metric)])
+    dplyr::select(byr,
+                  type,
+                  !!metric,
+                  pred)
   
-  list(plot = plot, table = table)
+  list(plot = plot, 
+       table = table, 
+       preds = 
+         diff %>%
+         mutate(age_numeric = gsub("age(\\d+)", "\\1", !!age)) %>%
+         select(byr, age = age_numeric, R = !!age, type, md, mad, maape, pred) %>%
+         left_join(mod_average0[, c("byr", "type", "weight")], by = c("byr", "type")) %>%
+         arrange(byr, type)
+       # %>% 
+       #   pivot_wider(id_cols = c(byr, !!as.name(age)), names_from = type, values_from = c(maape, pred))
+  )
 }

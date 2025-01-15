@@ -14,7 +14,7 @@
 #' @export
 pred_ma <- function(var, yrs = 5){
   df <-
-    lapply(1:(length(var) - 1), function(x) {
+    lapply(1:(length(var)), function(x) {
       if (is.null(yrs)) {
         start <- 1
       }
@@ -26,7 +26,7 @@ pred_ma <- function(var, yrs = 5){
         median = exp(mean(y)))
     })
   temp <- do.call(rbind, df)
-  as.data.frame(rbind(temp, data.frame(mean = NA, median = NA)))
+  as.data.frame(temp)
 }
 
 fore_ma <- function(var, yrs = 5){

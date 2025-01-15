@@ -12,14 +12,26 @@
 #' pred_lm(sib6)
 #'
 #' @export
-pred_lm <- function(mod){
-  sapply(1:nrow(mod$model), function(x){
-    train <- mod$model[-x, ]
-    test <- mod$model[x, ]
+pred_lm <- function(mod, dat){
+  pred <- sapply(6:nrow(mod$model), function(x){
+    train <- mod$model[1:(x - 1), ]
+    test <- mod$model[x, -1, drop = FALSE]
     mod <- update(mod, data = train)
     preds <- predict(mod, newdata = test, se = TRUE)
-    c(preds$fit, preds$se.fit)})
+    c(exp(preds$fit), preds$se.fit)})
+  forecast <- predict(mod, newdata = dat[nrow(mod$model) + 1, names(mod$model)[-1], drop = FALSE], se = TRUE)
+  rbind(matrix(NA, 5, 2), t(pred), c(exp(forecast$fit), forecast$se.fit))
 }
+
+# pred_lm <- function(mod){
+#   sapply(1:nrow(mod$model), function(x){
+#     train <- mod$model[-x, ]
+#     test <- mod$model[x, ]
+#     mod <- update(mod, data = train)
+#     preds <- predict(mod, newdata = test, se = TRUE)
+#     c(exp(preds$fit), preds$se.fit)})
+#   t(pred)
+# }
 
 fore_lm <- function(dat, mod){
   new_data <- data.frame(dat[nrow(dat), names(mod$model)])

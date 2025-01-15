@@ -28,5 +28,5 @@ prep_brood <- function(brood, age_range){
   temp %>%
     dplyr::filter(retain) %>%
     dplyr::mutate(lnRS = log((!!filter_var) / S)) %>%
-    dplyr::mutate(dplyr::across(dplyr::starts_with("age"), list(ln = log)))
+    dplyr::mutate(dplyr::across(dplyr::starts_with("age"), log, .names = "{(.col)}_ln"))
 }

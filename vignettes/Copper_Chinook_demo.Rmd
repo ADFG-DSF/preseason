@@ -9,6 +9,7 @@ vignette: >
 
 ```{r}
 library(tidyverse)
+library(flextable)
 ```
 
 ## Introduction
@@ -75,7 +76,7 @@ forecast::tsdisplay(dat4$age4_ln)
 -   Add the hindcasts to our age 5 data set. Don't worry about the predictions right now, we’ll see them later.
 
 ```{r}
-dat4$arima_pred <- pred_arima(arima4)[1, ]
+dat4$arima_pred <- pred_arima(arima4)[, 1]
 ```
 
 ### Exponential smoothing
@@ -87,103 +88,367 @@ Instead of trying to figure out a fixed number of years to include in our moving
 dat4$es_pred <- pred_es(es4)
 ```
 
-### Compare models
+### Visualize hindcasts and forecast for each model
 
 The function "comp_mods" provides a figure and three statistics to help you decide on the best model. Use md (mean deviation) to assess bias (closest to zero is best) and mad to assess accuracy (smaller is better). These statistics are calculated based on the last 5 years of predictions by default. In general, you want the smallest mad you can get unless the md is very similar to the mad. In this case sib_pred has the smallest mad and also the smallest md, so it is a pretty clear choice.
 
 ```{r, warning = FALSE, fig.height = 5}
-comp_models(dat4, 4, metric = c("md", "mad", "mape", "maape"))
+age4 <- comp_models(dat4, 4, metric = c("md", "mad", "mape", "maape"))
+age4
+
+# Notice that the best model is not consistent between years
+age4[[3]] %>% 
+  ungroup() %>% 
+  group_by(byr) %>% 
+  filter(maape == min(maape, na.rm = TRUE)) %>%
+  select(byr, type) %>%
+  knitr::kable()
+
+# Is using the inverse maape model average better than picking the best model each year?
+select4 <- age4[[3]] %>%
+  ungroup() %>%
+  group_by(byr) %>%
+  mutate(select_best = ifelse(maape == min(maape, na.rm = TRUE), pred, 0),
+         select_avg = ifelse(type == "average_pred", pred, 0)) %>% 
+  summarize(R = mean(R), 
+            select_best = sum(select_best),
+            select_ave = sum(select_avg)) %>%
+  pivot_longer(cols = dplyr::starts_with("select"), 
+               names_to = "select", 
+               names_pattern = ".*_(.*)",
+               values_to = "pred") %>%
+    dplyr::mutate(d = pred - R, 
+                  pe = d / R) %>% 
+    dplyr::arrange(select, byr) %>%
+    dplyr::group_by(select) %>% 
+    dplyr::mutate(md_1 = zoo::rollmeanr(d, 5, fill = NA), #Error stats for this brood year and the prior "years" - 1 brood years.
+                  mad_1 = zoo::rollmeanr(abs(d), 5, fill = NA, na.rm = TRUE), #Not used in mode selection bc it includes a year we would not know about when selecting the model.
+                  mape_1 = zoo::rollmeanr(abs(pe), 5, fill = NA, na.rm = TRUE),
+                  maape_1 = zoo::rollmeanr(atan(abs(pe)), 5, fill = NA, na.rm = TRUE),
+                  md = dplyr::lag(md_1, 1), #Error stats for the prior "years" - 1;"years" - 5 brood years.
+                  mad = dplyr::lag(mad_1, 1), #these would be used in model section
+                  mape = dplyr::lag(mape_1, 1),
+                  maape = dplyr::lag(maape_1, 1)) %>%
+  arrange(byr) %>%
+  select(byr, R, select, pred, md, maape)
+
+select4 %>% 
+  ungroup() %>%
+  group_by(byr) %>%
+  mutate(best = ifelse(maape == min(maape), 1, 0)) %>%
+  ungroup() %>%
+  filter(select == "ave") %>%
+  summarize(best = mean(best, na.rm = TRUE))
 ```
 
-As of now we have to calculate the future years prediction directly. In this case we are using a linear model with no autocorrelation, the x variables are the natural log of the number of age 3 and age 4 fish in the brood year. We can retrieve these from the brood table.
+## Age 5 Hindcasts
 
-## Sibling models
+For age 5 fish we can run the same 3 modelsplus a sibling model.
+
+### Moving average models
+
+The simplest possibility is a moving average. The function 'pred_ma' gives the moving average for a specified number of years. I'll do a 5 year moving averages for illustration purposes. Don't worry about the predictions right now, we’ll see them later.
+
+```{r}
+dat5$ma5_pred <- pred_ma(dat5$age5_ln, yrs = 5)$median
+```
+
+### Mean with residual correlation
+
+A different type of average would be to account for serial correlation in the residuals. Time series analysis is a big topic but here is a simplified workflow:
+
+-   Plot the time series and look for patterns: significant periods of time above or below the center line of the top plot and or afc or pafc values above the blue reference lines.
+
+```{r}
+forecast::tsdisplay(dat5$age5_ln)
+```
+
+-   Run the auto.arima function to identify the most appropriate model. There is a lot going on here but the model specification can cover a lot of options. For example, (0,0,0) represents an average through the entire time series, (0,1,0) represents using last years observation as the forecast, and (1,0,0), (0,0,1) or (1,0,1) are all variations between these two extremes.
+
+```{r}
+(arima5 <- forecast::auto.arima(dat5$age5_ln))
+```
+
+-   Add the hindcasts to our age 5 data set. Don't worry about the predictions right now, we’ll see them later.
+
+```{r}
+dat5$arima_pred <- pred_arima(arima5)[, 1]
+```
+
+### Exponential smoothing
+
+Instead of trying to figure out a fixed number of years to include in our moving average we can use a method called exponential smoothing where you take a weighted average of the previous observation and the previous prediction. Since the previous prediction is also a weighted average (of the observation and prediction one year prior) you end up with a moving average where the weight given to recent data is optimized while fitting the model. When $\alpha$ is 1 the forecast is equal to the previous years observation, when $\alpha$ is 0 the forecast is time invariant and equals the first observation in the time series. Values of $\alpha$ in between 0 and 1 represent different weights where values closer to 1 weight the most recent data more heavily.
+
+```{r}
+(es5 <- forecast::ets(dat5$age5_ln, "ANN")) 
+dat5$es_pred <- pred_es(es5)
+```
+
+### Sibling models
 
 A sibling model estimates the run size of an age class using the run sizes of younger siblings as predictors. For age-5 Chinook we can use age-3 and age-4 fish as predictors. Here is a look at the data, the relationship with age-4 fish is pretty obvious although the relationship with age-3 fish is not.
 
 ```{r, , fig.height = 5}
-ggplot2::ggplot(dat5, ggplot2::aes(x = age4_ln, y = age5_ln, size = age3_ln)) + ggplot2::geom_point()
+ggplot2::ggplot(dat5, ggplot2::aes(x = age4_ln, y = age5_ln)) + 
+  ggplot2::geom_point()
 ```
 
 This model is significant with decent looking residuals. At this point a good practice is to look for correlation in the residuals, although in this case I found no improvement in model fit by including an ARIMA component.
 
 ```{r}
-sib5 <- lm(age5_ln ~ age4_ln + age3_ln, data = dat5)
-summary(sib5)
+sib5 <- lm(age5_ln ~ age4_ln, data = dat5, na.action = na.exclude) 
+summary(sib5) 
 par(mfrow = c(2,2)); plot(sib5); par(mfrow = c(1,1))
 ```
 
 The function pred_lm produces predictions for each year with the data from every other year using a linear model. We can save those to the original dataframe with the name sib_pred where the suffix (\_pred) is important becasue a later function will look for variables with that suffix.
 
 ```{r}
-temp <- pred_lm(sib5)
-dat5$sib_pred <- exp(temp[1,] + temp[2,]^2/2)
+dat5$sib_pred <- pred_lm(sib5, dat5)[, 1]
 ```
 
-## Ricker models
+### Visualize hindcasts and forecast for each model
 
-The age 5 Ricker model fits the data and has decent residuals but also demonstrates some residual correlation.
-
-```{r}
-plot(dat5$S, dat5$lnRS)
-rick5 <- lm(lnRS ~ S, data = dat5)
-summary(rick5)
-par(mfrow = c(2,2)); plot(rick5); par(mfrow = c(1,1))
-forecast::tsdisplay(residuals(rick5))
-```
-
-The best fitting time series model is a AR1 model. The function "pred_arima" produces predictions for each year using an arima model and only the data prior to the predicted year. Let’s run that and save those predictions as well
-
-```{r}
-forecast::auto.arima(dat5$lnRS, xreg = dat5$S)
-rick5_ar1 <- arima(dat5$lnRS, order=c(1,0,0), xreg = dat5$S, method="ML")
-AIC(rick5, rick5_ar1)
-dat5$ricker_pred <- exp(pred_arima(rick5_ar1, x = dat5$lnRS, xreg = dat5$S)[1,]) * dat5$S
-```
-
-## Mean with residual correlation
-
-Anton called these univariate models. There may be some residual correlation in the form of a AR1 process. We can use the pred_arima function to get these predictions and save them to our age 5 dataset.
-
-```{r}
-forecast::tsdisplay(dat5$age5_ln)
-forecast::auto.arima(dat5$age5_ln)
-mu5_ar1 <- arima(dat5$age5_ln, order=c(1,0,0))
-temp <- pred_arima(mu5_ar1, x = dat5$age5_ln)
-dat5$mu_pred <- exp(temp[1,] + temp[2,]^2/2)
-```
-
-## Moving average models
-
-This function gives the moving average for a specified number of years. I'll do 3 and 5 year moving averages for illustration purposes. Don't worry about the predictions right now, we’ll see them later.
-
-```{r}
-dat5$ma3_pred <- pred_ma(dat5$age5_ln, yrs = 3)
-dat5$ma5_pred <- pred_ma(dat5$age5_ln, yrs = 5)
-```
-
-## Exponential smoothing
-
-Instead of trying to figure out a fixed number of years to include in our moving average we can use a method called exponential smoothing where you take a weighted average of the previous observation and the previous prediction. Since the previous prediction is also a weighted average (of the observation and prediction one year prior) you end up with a moving average where the weight given to recent data is optimized while fitting the model.
-
-```{r}
-forecast::ets(dat5$age5_ln, "ANN")
-dat5$es_pred <- pred_es(dat5$age5_ln)
-```
-
-##Model Comparison The function "comp_mods" provides a figure and two statistics to help you decide on the best model. Use md (mean deviation) to assess bias (closest to zero is best) and mad to assess accuracy (smaller is better). These statistics are calculated based on the last 5 years of predictions by default. In general, you want the smallest mad you can get unless the md is very similar to the mad. In this case sib_pred has the smallest mad and also the smallest md, so it is a pretty clear choice.
+The function "comp_mods" provides a figure and three statistics to help you decide on the best model. Use md (mean deviation) to assess bias (closest to zero is best) and mad to assess accuracy (smaller is better). These statistics are calculated based on the last 5 years of predictions by default. In general, you want the smallest mad you can get unless the md is very similar to the mad. In this case sib_pred has the smallest mad and also the smallest md, so it is a pretty clear choice.
 
 ```{r, warning = FALSE, fig.height = 5}
-comp_models(dat5, 5)
+age5 <- comp_models(dat5, 5, metric = c("md", "mad", "mape", "maape")) 
+age5
+
+
+# Notice that the best model is not consistent between years
+age5[[3]] %>% 
+  ungroup() %>% 
+  group_by(byr) %>% 
+  filter(maape == min(maape, na.rm = TRUE)) %>%
+  select(byr, type) %>%
+  knitr::kable()
+
+# Is using the inverse maape model average better than picking the best model each year?
+select5 <- age5[[3]] %>%
+  ungroup() %>%
+  group_by(byr) %>%
+  mutate(select_best = ifelse(maape == min(maape, na.rm = TRUE), pred, 0),
+         select_avg = ifelse(type == "average_pred", pred, 0)) %>% 
+  summarize(R = mean(R), 
+            select_best = sum(select_best),
+            select_ave = sum(select_avg)) %>%
+  pivot_longer(cols = dplyr::starts_with("select"), 
+               names_to = "select", 
+               names_pattern = ".*_(.*)",
+               values_to = "pred") %>%
+    dplyr::mutate(d = pred - R, 
+                  pe = d / R) %>% 
+    dplyr::arrange(select, byr) %>%
+    dplyr::group_by(select) %>% 
+    dplyr::mutate(md_1 = zoo::rollmeanr(d, 5, fill = NA), #Error stats for this brood year and the prior "years" - 1 brood years.
+                  mad_1 = zoo::rollmeanr(abs(d), 5, fill = NA, na.rm = TRUE), #Not used in mode selection bc it includes a year we would not know about when selecting the model.
+                  mape_1 = zoo::rollmeanr(abs(pe), 5, fill = NA, na.rm = TRUE),
+                  maape_1 = zoo::rollmeanr(atan(abs(pe)), 5, fill = NA, na.rm = TRUE),
+                  md = dplyr::lag(md_1, 1), #Error stats for the prior "years" - 1;"years" - 5 brood years.
+                  mad = dplyr::lag(mad_1, 1), #these would be used in model section
+                  mape = dplyr::lag(mape_1, 1),
+                  maape = dplyr::lag(maape_1, 1)) %>%
+  arrange(byr) %>%
+  select(byr, R, select, pred, md, maape)
+
+select5 %>% 
+  ungroup() %>%
+  group_by(byr) %>%
+  mutate(best = ifelse(maape == min(maape), 1, 0)) %>%
+  ungroup() %>%
+  filter(select == "ave") %>%
+  summarize(best = mean(best, na.rm = TRUE))
 ```
 
-##2019 forecast As of now we have to calculate the future years prediction directly. In this case we are using a linear model with no autocorrelation, the x variables are the natural log of the number of age 3 and age 4 fish in the brood year. We can retrieve these from the brood table.
+## Age 6 Hindcasts
+
+For age 5 fish we can run the same 3 modelsplus a sibling model.
+
+### Moving average models
+
+The simplest possibility is a moving average. The function 'pred_ma' gives the moving average for a specified number of years. I'll do a 5 year moving averages for illustration purposes. Don't worry about the predictions right now, we’ll see them later.
 
 ```{r}
-tail(deshka, 10)
+dat6$ma5_pred <- pred_ma(dat6$age6_ln, yrs = 5)$median
+```
+
+### Mean with residual correlation
+
+A different type of average would be to account for serial correlation in the residuals. Time series analysis is a big topic but here is a simplified workflow:
+
+-   Plot the time series and look for patterns: significant periods of time above or below the center line of the top plot and or afc or pafc values above the blue reference lines.
+
+```{r}
+forecast::tsdisplay(dat6$age6_ln)
+```
+
+-   Run the auto.arima function to identify the most appropriate model. There is a lot going on here but the model specification can cover a lot of options. For example, (0,0,0) represents an average through the entire time series, (0,1,0) represents using last years observation as the forecast, and (1,0,0), (0,0,1) or (1,0,1) are all variations between these two extremes.
+
+```{r}
+(arima6 <- forecast::auto.arima(dat6$age6_ln))
+```
+
+-   Add the hindcasts to our age 5 data set. Don't worry about the predictions right now, we’ll see them later.
+
+```{r}
+dat6$arima_pred <- pred_arima(arima6)[, 1]
+```
+
+### Exponential smoothing
+
+Instead of trying to figure out a fixed number of years to include in our moving average we can use a method called exponential smoothing where you take a weighted average of the previous observation and the previous prediction. Since the previous prediction is also a weighted average (of the observation and prediction one year prior) you end up with a moving average where the weight given to recent data is optimized while fitting the model. When $\alpha$ is 1 the forecast is equal to the previous years observation, when $\alpha$ is 0 the forecast is time invariant and equals the first observation in the time series. Values of $\alpha$ in between 0 and 1 represent different weights where values closer to 1 weight the most recent data more heavily.
+
+```{r}
+(es6 <- forecast::ets(dat6$age6_ln, "ANN")) 
+dat6$es_pred <- pred_es(es6)
+```
+
+### Sibling models
+
+A sibling model estimates the run size of an age class using the run sizes of younger siblings as predictors. For age-5 Chinook we can use age-3 and age-4 fish as predictors. Here is a look at the data, the relationship with age-4 fish is pretty obvious although the relationship with age-3 fish is not.
+
+```{r, , fig.height = 5}
+ggplot2::ggplot(dat6, ggplot2::aes(x = age5_ln, y = age6_ln)) + 
+  ggplot2::geom_point()
+```
+
+This model is significant with decent looking residuals. At this point a good practice is to look for correlation in the residuals, although in this case I found no improvement in model fit by including an ARIMA component.
+
+```{r}
+sib6 <- lm(age6_ln ~ age5_ln, data = dat6, na.action = na.exclude) 
+summary(sib6) 
+par(mfrow = c(2,2)); plot(sib6); par(mfrow = c(1,1))
+```
+
+### Visualize hindcasts and forecast for each model
+
+The function "comp_mods" provides a figure and three statistics to help you decide on the best model. Use md (mean deviation) to assess bias (closest to zero is best) and mad to assess accuracy (smaller is better). These statistics are calculated based on the last 5 years of predictions by default. In general, you want the smallest mad you can get unless the md is very similar to the mad. In this case sib_pred has the smallest mad and also the smallest md, so it is a pretty clear choice.
+
+```{r, warning = FALSE, fig.height = 5}
+age6 <- comp_models(dat6, 6, metric = c("md", "mad", "mape", "maape")) 
+age6
+
+# Notice that the best model is not consistent between years
+age6[[3]] %>% 
+  ungroup() %>% 
+  group_by(byr) %>% 
+  filter(maape == min(maape, na.rm = TRUE)) %>%
+  select(byr, type) %>%
+  knitr::kable()
+
+# Is using the inverse maape model average better than picking the best model each year?
+select6 <- age6[[3]] %>%
+  ungroup() %>%
+  group_by(byr) %>%
+  mutate(select_best = ifelse(maape == min(maape, na.rm = TRUE), pred, 0),
+         select_avg = ifelse(type == "average_pred", pred, 0)) %>% 
+  summarize(R = mean(R), 
+            select_best = sum(select_best),
+            select_ave = sum(select_avg)) %>%
+  pivot_longer(cols = dplyr::starts_with("select"), 
+               names_to = "select", 
+               names_pattern = ".*_(.*)",
+               values_to = "pred") %>%
+    dplyr::mutate(d = pred - R, 
+                  pe = d / R) %>% 
+    dplyr::arrange(select, byr) %>%
+    dplyr::group_by(select) %>% 
+    dplyr::mutate(md_1 = zoo::rollmeanr(d, 5, fill = NA), #Error stats for this brood year and the prior "years" - 1 brood years.
+                  mad_1 = zoo::rollmeanr(abs(d), 5, fill = NA, na.rm = TRUE), #Not used in mode selection bc it includes a year we would not know about when selecting the model.
+                  mape_1 = zoo::rollmeanr(abs(pe), 5, fill = NA, na.rm = TRUE),
+                  maape_1 = zoo::rollmeanr(atan(abs(pe)), 5, fill = NA, na.rm = TRUE),
+                  md = dplyr::lag(md_1, 1), #Error stats for the prior "years" - 1;"years" - 5 brood years.
+                  mad = dplyr::lag(mad_1, 1), #these would be used in model section
+                  mape = dplyr::lag(mape_1, 1),
+                  maape = dplyr::lag(maape_1, 1)) %>%
+  arrange(byr) %>%
+  select(byr, R, select, pred, md, maape)
+
+select6 %>% 
+  ungroup() %>%
+  group_by(byr) %>%
+  mutate(best = ifelse(maape == min(maape), 1, 0)) %>%
+  ungroup() %>%
+  filter(select == "ave") %>%
+  summarize(best = mean(best, na.rm = TRUE))
+```
+
+## Forecast Table
+
+```{r}
+forecast <-
+  rbind(age4[[3]][age4[[3]]$byr == max(age4[[3]]$byr), ], 
+        age5[[3]][age5[[3]]$byr == max(age5[[3]]$byr), ]) %>%
+  rbind(age6[[3]][age6[[3]]$byr == max(age6[[3]]$byr), ]) %>%
+  select(-byr, -R) %>%
+  relocate(age, type, forecast = pred, md, mad, maape, weight)
+forecast
+
+errors <-
+  data.frame(year = 1980:2024, 
+             N = post$q50$N[-length(post$q50$N)],
+             age4forecast = c(NA, NA, NA, select4$pred[select4$select == "ave"]),
+             age5forecast = c(NA, NA, NA, NA, select5$pred[select5$select == "ave"]),
+             age6forecast = c(NA, NA, NA, NA, NA, select6$pred[select6$select == "ave"])) %>%
+  mutate(forecast = age4forecast + age5forecast + age6forecast,
+         errors_ln = log(forecast / N)) %>%
+  tail(n = 5)
+
+# following Tony's lead... use the model average.
+(Copper_forecast <- sum(forecast$forecast[forecast$type == "average_pred"]))
+# rmse 80% bounds
+(Copper_forecast_CI <- exp(sqrt(mean(errors$errors_ln^2)) * c(qt(.1, 5), qt(.9, 5))) * Copper_forecast)
 ```
 
 ```{r}
-temp <- predict(sib5, data.frame(age4_ln = log(2146), age3_ln = log(874)), se.fit = TRUE)
-exp(temp$fit + temp$se.fit^2/2)
+Copper_table <- 
+  forecast %>% 
+  mutate(type = factor(type,
+                       levels = c("es_pred", "ma5_pred", "arima_pred", "sib_pred", "average_pred"),
+                       labels = c("Exponential Smooth", "5-yr rolling mean", "ARIMA", "Sibling", "MAAPE model average"),
+                       ordered = TRUE)) %>%
+  arrange(age, type) %>%
+  flextable() %>%
+  set_header_labels(
+    age = "Age",
+    type = "Model",
+    forecast = "2025 \n Forecast",
+    md = "MD",
+    mad = "MAD",
+    maape = "MAAPE",
+    weight = "MAAPE \n weight"
+  ) %>%
+  add_header_row(top = TRUE, values = c("", "5-year Average", ""), colwidths = c(3, 3, 1)) %>%
+  hline(i = 1, j = c(1:3, 7), part = "header", border = officer::fp_border(width = 0)) %>%
+  hline(i = 1, j = 4:6, part = "header", border = officer::fp_border(width = 2)) %>%
+  align(i = 1, align = "center", part = "header") %>%
+  colformat_double(j = c("forecast", "md", "mad"), digits = 0) %>%
+  colformat_double(j = c("maape", "weight"), digits = 2) %>%
+  merge_v(~ age) %>%
+  merge_h_range(~ type == "Total Forecast", j1 = 3, j2 = 7) %>%
+  valign(j = "age", valign = "top") %>%
+  bold(~ type == "MAAPE model average", 1:7) %>%
+  footnote(i = 2, j = 4:6, 
+           value = as_paragraph(
+             c(" mean deviation",
+             " mean absolute deviation",
+             " mean absolute arctangent percent error")),
+           ref_symbols = c("a", "b", "c"),
+           part = "header") %>%
+  add_footer_row(c("2025 Total Forecast (80% CI)",
+                   paste0(format(round(Copper_forecast, 0), big.mark = ","), 
+                          " (", 
+                          format(round(Copper_forecast_CI[1], 0), big.mark = ","),
+                          "-", 
+                          format(round(Copper_forecast_CI[2], 0), big.mark = ","),
+                          ")")), 
+                   colwidths = c(2, 5),
+                   top = TRUE) %>%
+  bold(i = 1, part = "footer") %>%
+  hline(i = 1, j = 1:7, part = "footer", border = officer::fp_border(color = "#666666", width = 2)) %>% 
+  fontsize(i = 2:4, j = 1, size = 10, part = "footer") %>%
+  autofit()
+Copper_table
+#save_as_docx(Copper_table, path = ".\\Copper_table.docx")
 ```

@@ -15,17 +15,15 @@
 #'
 #' @export
 pred_arima <- function(mod){
-  x0 <- mod$x
-  x <- x0[-length(x0)]
-  xreg0 <- mod$xreg
-  xreg <- xreg0[-length(xreg0)]
+  x <- mod$x
+  xreg <- mod$xreg
   pred <- sapply(6:length(x), function(l){
     train <- x[1:(l-1)]
     train_xreg <- xreg[1:(l-1)]
     newmod <- update(mod, x = train, xreg = train_xreg)
     preds <- predict(newmod, newxreg = xreg[l])
-    c(preds$pred, preds$se)})
-  cbind(matrix(NA, 2, 5), exp(pred), matrix(NA, 2, 1))
+    c(exp(preds$pred), preds$se)})
+  rbind(matrix(NA, 5, 2), t(pred))
 }
 
 fore_arima <- function(mod){
