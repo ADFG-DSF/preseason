@@ -11,7 +11,7 @@
 #' @return a data frame
 #'
 #' @examples
-#' prep_brood(deshka, 4:6)
+#' dat6 <- prep_brood(deshka, 5:6)
 #' 
 #' @export
 prep_brood <- function(brood, age_range){

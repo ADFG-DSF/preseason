@@ -14,8 +14,8 @@
 #'
 #' @examples
 #' dat6 <- prep_brood(deshka, 4:6)
-#' ARIMA6_ar1 <- arima(dat6$age6_ln, order=c(1,0,0))
-#' dat6$ARIMA_pred <- exp(pred_arima(ARIMA6_ar1, x = dat6$age6_ln)[1,])
+#' (arima6 <- forecast::auto.arima(dat6$age6_ln))
+#' dat6$arima_pred <- pred_arima(arima6)[, 1]
 #' dat6$es_pred <- pred_es(dat6$age6_ln)
 #' comp_models(dat = dat6, comp_age = 6, years = 5)
 #'
@@ -92,7 +92,5 @@ comp_models <- function (dat, comp_age, years = 5, metric = c("md", "mad", "maap
          select(byr, age = age_numeric, R = !!age, type, md, mad, maape, pred) %>%
          left_join(mod_average0[, c("byr", "type", "weight")], by = c("byr", "type")) %>%
          arrange(byr, type)
-       # %>% 
-       #   pivot_wider(id_cols = c(byr, !!as.name(age)), names_from = type, values_from = c(maape, pred))
   )
 }

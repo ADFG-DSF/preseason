@@ -9,10 +9,12 @@
 #'
 #' @examples
 #' dat6 <- prep_brood(deshka, 4:6)
-#' pred_ma(dat6$age6_ln)
+#' dat4$ma5_pred <- pred_ma(dat4$age4_ln, yrs = 5)$mean
 #'
 #' @export
 pred_ma <- function(var, yrs = 5){
+  stopifnot(class(var) %in% c("integer", "numeric"))
+  
   df <-
     lapply(1:(length(var)), function(x) {
       if (is.null(yrs)) {
@@ -27,10 +29,4 @@ pred_ma <- function(var, yrs = 5){
     })
   temp <- do.call(rbind, df)
   as.data.frame(temp)
-}
-
-fore_ma <- function(var, yrs = 5){
-  y <- var[(length(var) - yrs):(length(var) - 1)]
-  c(mean = exp(mean(y) + var(y)/2),
-    median = exp(mean(y)))
 }
